@@ -97,7 +97,10 @@ namespace Liongbot.Command {
             }
             try {
                 var aj = new ArgumentInjector(CommandProfile);
-                CommandProfile.SyntaxProvider.Parse(aj, args);
+                if(!CommandProfile.SyntaxProvider.Parse(aj, args)) {
+                    rv = default(T);
+                    return false;
+                }
                 rv = (T)aj.ArgumentObject;
                 return true;
             } catch (Exception) {
