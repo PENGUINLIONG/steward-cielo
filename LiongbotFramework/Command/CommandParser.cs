@@ -56,7 +56,7 @@ namespace Liongbot.Command {
                 throw new CommandException("Names mismatched.");
             }
             var aj = new ArgumentInjector(CommandProfile);
-            if(!CommandProfile.SyntaxProvider.Parse(aj, args_) {
+            if(!CommandProfile.SyntaxProvider.Parse(aj, args)) {
                 throw new CommandException("Failed parsing argument.");
             }
             return (T)aj.ArgumentObject;
