@@ -26,7 +26,9 @@ namespace Liongbot.Command.SyntaxProviders {
                     }
                 } else {
                     // Non-pair input => free argument.
-                    injector.AppendFreeArgument(pair[0]);
+                    if (!injector.AppendFreeArgument(pair[0])) {
+                        return false;
+                    }
                 }
             }
             return true;
