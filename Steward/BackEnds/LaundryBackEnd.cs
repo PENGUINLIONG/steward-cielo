@@ -28,18 +28,22 @@ namespace StewardCielo.Backends {
         [FreeArg(Default = "")]
         [Doc("`left-dry`, `right-dry`, `left-wash` or `right-wash`.")]
         public string Machine;
+        [FreeArg(Default = 40)]
+        public int Minutes;
     }
 
     public class LaundryBackEnd : IBackEnd {
         public class MachineState {
+            public DateTime From;
             public DateTime Thru;
             public string By;
+            public string ById;
         }
         public class LaundryState {
-            public MachineState LeftDry;
-            public MachineState RightDry;
-            public MachineState LeftWash;
-            public MachineState RightWash;
+            public MachineState LeftDry = new MachineState();
+            public MachineState RightDry = new MachineState();
+            public MachineState LeftWash = new MachineState();
+            public MachineState RightWash = new MachineState();
         };
 
         private static LaundryState _state = State.Get<LaundryState>();
@@ -73,70 +77,75 @@ namespace StewardCielo.Backends {
             if (_parser.TryParse(msg.Message, out LaundryCommand cmd)) {
                 switch (cmd.Verb.ToLower()) {
                 case "help":
-                    res = _parser.CommandProfile.Docs;
-                    return true;
-                case "occupy":
-                    lock (_state) {
-                        switch(cmd.Machine) {
-                        case "left-dry":
-                            if (CheckMachine(_state.LeftDry)) {
-                                _state.LeftDry = new MachineState {
-                                    By = msg.Metadata.UserName,
-                                    Thru = DateTime.Now.AddMinutes(45),
-                                };
-                                res = Summarize();
-                            } else {
-                                res = AlreadyOccupied("left-dry", _state.LeftDry);
-                            }
-                            return true;
-                        case "right-dry":
-                            if (CheckMachine(_state.RightDry)) {
-                                _state.RightDry = new MachineState {
-                                    By = msg.Metadata.UserName,
-                                    Thru = DateTime.Now.AddMinutes(45),
-                                };
-                                res = Summarize();
-                            } else {
-                                res = AlreadyOccupied("right-dry", _state.RightDry);
-                            }
-                            return true;
-                        case "left-wash":
-                            if (CheckMachine(_state.LeftWash)) {
-                                _state.LeftWash = new MachineState {
-                                    By = msg.Metadata.UserName,
-                                    Thru = DateTime.Now.AddMinutes(30),
-                                };
-                                res = Summarize();
-                            } else {
-                                res = AlreadyOccupied("left-wash", _state.LeftWash);
-                            }
-                            return true;
-                        case "right-wash":
-                            if (CheckMachine(_state.RightWash)) {
-                                _state.RightWash = new MachineState {
-                                    By = msg.Metadata.UserName,
-                                    Thru = DateTime.Now.AddMinutes(30),
-                                };
-                                res = Summarize();
-                            } else {
-                                res = AlreadyOccupied("right-wash", _state.RightWash);
-                            }
-                            return true;
-                        default:
-                            break;
-                        }
-                    }
-                    res = "..What?\n" + _parser.CommandProfile.Docs;
-                    return true;
+                    res = "To query the occupation status:\n" + 
+                          "    /laundry\n" +
+                          "To occupy an machine:\n" +
+                          "    /laundry occupy left-dry\n" +
+                          "By default, the time for each use is set to 40. To specify a more detailed number of minutes, which is shown on the washing machine's display:\n" +
+                          "    /laundry occupy right-wash 30\n" +
+                          "To release an unintentionally occupied machine:" +
+                          "    /laundry release left-wash";
+                    break;
+                case "occupy": lock (_state) {
+                    res = OccupyMachine(cmd.Machine, msg.Metadata, cmd.Minutes);
+                    break;
+                }
+                case "release": lock (_state) {
+                    res = ReleaseMachine(cmd.Machine, msg.Metadata.UserName);
+                    break;
+                }
+                case "status":
+                    res = Summarize();
+                    break;
                 default:
                     res = Summarize();
-                    return true;
+                    break;
                 }
+                return true;
             } else {
                 res = null;
                 return false;
             }
         }
+
+        private Message OccupyMachine(string machineName, MessageMetadata meta, int minutes) {
+            var state = GetMachineState(machineName);
+            var now = DateTime.Now;
+            if (CheckMachine(state)) {
+                state.By = meta.UserName;
+                state.ById = meta.UserId;
+                state.From = now;
+                state.Thru = now.AddMinutes(minutes);
+                return Summarize();
+            } else {
+                return AlreadyOccupied(machineName, state);
+            }
+        }
+        private Message ReleaseMachine(string machineName, string userName) {
+            var state = GetMachineState(machineName);
+            if (state is null) {
+                return Summarize();
+            }
+            if (state.By == userName) {
+                if (!CheckMachine(state)) {
+                    state.Thru = DateTime.MinValue;
+                }
+                return Summarize();
+            } else {
+                return "You are not the current user.";
+            }
+        }
+
+        private MachineState GetMachineState(string name) {
+            switch (name) {
+            case "left-dry": return _state.LeftDry;
+            case "right-dry": return _state.RightDry;
+            case "left-wash": return _state.LeftWash;
+            case "right-wash": return _state.RightWash;
+            default: return null;
+            }
+        }
+
 
         private bool CheckMachine(MachineState state) => state == null || state.Thru < DateTime.Now;
 
