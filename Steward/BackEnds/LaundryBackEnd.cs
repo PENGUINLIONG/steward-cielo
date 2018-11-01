@@ -4,7 +4,7 @@ using Liongbot.Command.Attributes;
 using Liongbot.Dispatch;
 using Liongbot.Messaging;
 
-namespace StewardCielo.Backends {
+namespace StewardCielo.BackEnds {
     public class SummaryMessage : UserTemplate {
         protected override Message[] TemplateMessage => new Message[] {
             "left-dry: ", Placeholder(), "\n" +

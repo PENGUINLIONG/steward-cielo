@@ -12,7 +12,7 @@ using Liongbot.Dispatch;
 using LiongbotPeripheral.GroupMe;
 using Liongbot.Command.SyntaxProviders;
 using StewardCielo.Controllers;
-using StewardCielo.Backends;
+using StewardCielo.BackEnds;
 
 namespace StewardCielo {
     public class Program {
@@ -30,6 +30,7 @@ namespace StewardCielo {
             ReceiverController.MessageReceived += (sender, e) => front.AspCall(e.MessageContent);
             dispatcher.AddFrontEnd(front);
             dispatcher.AddBackEnd(new LaundryBackEnd(sp));
+            dispatcher.AddBackEnd(new VisitorBackEnd(sp));
             dispatcher.Launch();
             State.SchedulePersistence();
 

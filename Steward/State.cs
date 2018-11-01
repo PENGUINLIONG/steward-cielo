@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Text;
 using System.Threading;
 using Newtonsoft.Json;
 
@@ -10,6 +11,8 @@ namespace StewardCielo {
         private static Timer _timer;
         private static ConcurrentDictionary<string, object> _cache = new ConcurrentDictionary<string, object>();
         private static object _sync = new object();
+        private static ConcurrentQueue<string> _journalQueue = new ConcurrentQueue<string>();
+        private static StreamWriter _journal = new StreamWriter(new FileStream("journal.log", FileMode.Append, FileAccess.Write), Encoding.UTF8);
 
         public static void SchedulePersistence() {
             _timer = new Timer(_ => {
@@ -18,6 +21,10 @@ namespace StewardCielo {
                     foreach (var pair in _cache) {
                         var json = JsonConvert.SerializeObject(pair.Value);
                         File.WriteAllText(pair.Key + ".json", json);
+                    }
+                    string journalItem;
+                    while (_journalQueue.TryDequeue(out journalItem)) {
+                        _journal.WriteLine(journalItem);
                     }
                 }
             }, null, 1000 * 60 * 10, 1000 * 60 * 10);
@@ -37,6 +44,12 @@ namespace StewardCielo {
                     return new T();
                 }
             }
+        }
+        public static void Journal<T>(T state) {
+            var name = typeof(T).Name;
+            _journalQueue.Enqueue(name);
+            var json = JsonConvert.SerializeObject(state);
+            _journalQueue.Enqueue(json);
         }
         public static void Store<T>(T state) {
             var name = typeof(T).Name;
